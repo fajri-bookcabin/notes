@@ -114,6 +114,18 @@ All keys created by this service are prefixed with `LMU:` so they can be filtere
 
 ---
 
+### 10. Free Quota Ownership (Audit)
+
+| Key Pattern | Type | TTL | Purpose |
+|-------------|------|-----|---------|
+| `LMU:q:{flightNumber}:{yyyy-MM-dd\|m:yyyy-MM}:f-owner` | `Hash` | **None** (cleared on hold release; Redis auto-removes empty hashes) | Per-flight per-date mapping of **which PNR is holding how many free seats**. Each hash field is a PNR (record locator), each value is the held free count.  <br>• Written when `/details` creates a free hold (`HINCRBY`).  <br>• Cleared when the hold is released, expired, or consumed by payment (`HINCRBY` negative → `HDEL` at 0).  <br>• Used for audit/debug to answer *"who booked the free quota on flight X?"*. |
+
+**Set by:** `QuotaRedisService.TryReserveDetailsFreeHoldAsync` (after `StringSetAsync` succeeds)  
+**Updated by:** `QuotaRedisService.ReleaseDetailsHoldItemsInstanceAsync` (decrement on release), `QuotaRedisService.TryConsumeDetailsFreeHoldMetadataAsync` (decrement on consumption)  
+**Read by:** `QuotaRedisService.GetFreeQuotaOwnersAsync` (returns `Dictionary<PNR, freeCount>`)
+
+---
+
 ## Key Naming Quick Reference
 
 | Prefix | What it stores |
@@ -126,6 +138,7 @@ All keys created by this service are prefixed with `LMU:` so they can be filtere
 | `LMU:res:pnr:` | PNR → orderId mapping |
 | `LMU:res:order:` | OrderId → PNR mapping |
 | `LMU:res:details:` | Details-stage free-quota hold per (PNR, carrier) |
+| `LMU:q:*:f-owner` | Free-quota ownership hash per (flight, date/month) → PNR → count |
 
 ---
 
